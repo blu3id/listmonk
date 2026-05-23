@@ -2,7 +2,7 @@ version: "3"
 
 services:
   adminer:
-    image: adminer:4.8.1-standalone
+    image: adminer:5.4.2-standalone
     restart: always
     ports:
       - 8070:8080
@@ -18,7 +18,7 @@ services:
       - listmonk-dev
 
   db:
-    image: postgres:13
+    image: postgres:18.4-alpine
     ports:
       - "5432:5432"
     networks:
@@ -31,7 +31,7 @@ services:
     volumes:
       - type: volume
         source: listmonk-dev-db
-        target: /var/lib/postgresql/data
+        target: /var/lib/postgresql
 
   front:
     build:
