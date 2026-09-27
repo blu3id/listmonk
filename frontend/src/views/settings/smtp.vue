@@ -4,8 +4,10 @@
       <div class="block box" v-for="(item, n) in form.smtp" :key="n">
         <div class="columns">
           <div class="column is-2">
-            <b-field :label="$t('globals.buttons.enabled')">
-              <b-switch v-model="item.enabled" name="enabled" :native-value="true" data-cy="btn-enable-smtp" />
+            <b-field>
+              <b-switch v-model="item.enabled" name="enabled" :native-value="true" data-cy="btn-enable-smtp">
+                {{ $t('globals.buttons.enabled') }}
+              </b-switch>
             </b-field>
             <b-field v-if="form.smtp.length > 1">
               <a @click.prevent="$utils.confirm(null, () => removeSMTP(n))" href="#" data-cy="btn-delete-smtp">
@@ -33,9 +35,9 @@
             </div><!-- host -->
 
             <div class="columns">
-              <div class="column is-2">
+              <div class="column is-3">
                 <b-field :label="$t('settings.mailserver.authProtocol')" label-position="on-border">
-                  <b-select v-model="item.auth_protocol" name="auth_protocol">
+                  <b-select v-model="item.auth_protocol" name="auth_protocol" expanded>
                     <option value="login">
                       LOGIN
                     </option>
@@ -102,10 +104,11 @@
                       </option>
                     </b-select>
                   </b-field>
-                  <b-field :label="$t('settings.mailserver.skipTLS')" expanded
-                    :message="$t('settings.mailserver.skipTLSHelp')">
+                  <b-field expanded :message="$t('settings.mailserver.skipTLSHelp')">
                     <b-switch v-model="item.tls_skip_verify" :disabled="item.tls_type === 'none'"
-                      name="item.tls_skip_verify" />
+                      name="item.tls_skip_verify">
+                      {{ $t('settings.mailserver.skipTLS') }}
+                    </b-switch>
                   </b-field>
                 </b-field>
               </div>
@@ -159,6 +162,13 @@
                 <b-field :label="$t('globals.fields.name')" label-position="on-border"
                   :message="$t('settings.mailserver.nameHelp')">
                   <b-input v-model="item.name" name="name" placeholder="email-primary" :maxlength="100" />
+                </b-field>
+              </div>
+              <div class="column is-6">
+                <b-field :label="$t('settings.smtp.fromAddresses')" label-position="on-border"
+                  :message="$t('settings.smtp.fromAddressesHelp')">
+                  <b-taginput v-model="item.from_addresses" name="from_addresses" ellipsis icon="tag-outline"
+                    :before-adding="validateFromAddress" placeholder="user@example.com, anothersite.com" />
                 </b-field>
               </div>
             </div>
@@ -288,9 +298,10 @@ export default Vue.extend({
         username: '',
         password: '',
         email_headers: [],
+        from_addresses: [],
         max_conns: 10,
         max_msg_retries: 2,
-        msg_retry_delay: '0s',
+        msg_retry_delay: '10ms',
         idle_timeout: '15s',
         wait_timeout: '5s',
         tls_type: 'STARTTLS',
@@ -361,6 +372,11 @@ export default Vue.extend({
       }
 
       return true;
+    },
+
+    validateFromAddress(v) {
+      // Accept an e-mail address (user@example.com) or a domain (example.com).
+      return /^[^\s@]+(\.[^\s@]+)+$|^[^\s@]+@[^\s@]+(\.[^\s@]+)+$/.test(v);
     },
 
     fillSettings(n, key) {

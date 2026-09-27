@@ -13,6 +13,7 @@ type Settings struct {
 	EnablePublicSubPage           bool     `json:"app.enable_public_subscription_page"`
 	EnablePublicArchive           bool     `json:"app.enable_public_archive"`
 	EnablePublicArchiveRSSContent bool     `json:"app.enable_public_archive_rss_content"`
+	ShowOptinPage                 bool     `json:"app.show_optin_page"`
 	SendOptinConfirmation         bool     `json:"app.send_optin_confirmation"`
 	CheckUpdates                  bool     `json:"app.check_updates"`
 	AppLang                       string   `json:"app.lang"`
@@ -63,7 +64,7 @@ type Settings struct {
 		DefaultListRoleID null.Int `json:"default_list_role_id"`
 	} `json:"security.oidc"`
 
-	SecurityCORSOrigins []string `json:"security.cors_origins"`
+	SecurityTrustedURLs []string `json:"security.trusted_urls"`
 
 	UploadProvider             string   `json:"upload.provider"`
 	UploadExtensions           []string `json:"upload.extensions"`
@@ -81,23 +82,24 @@ type Settings struct {
 	UploadS3Expiry             string   `json:"upload.s3.expiry"`
 
 	SMTP []struct {
-		Name              string              `json:"name"`
-		UUID              string              `json:"uuid"`
-		Enabled           bool                `json:"enabled"`
-		Host              string              `json:"host"`
-		HelloHostname     string              `json:"hello_hostname"`
-		Port              int                 `json:"port"`
-		AuthProtocol      string              `json:"auth_protocol"`
-		Username          string              `json:"username"`
-		Password          string              `json:"password,omitempty"`
-		EmailHeaders      []map[string]string `json:"email_headers"`
-		MaxConns          int                 `json:"max_conns"`
-		MaxMsgRetries     int                 `json:"max_msg_retries"`
-		MsgRetryDelay     string              `json:"msg_retry_delay"`
-		IdleTimeout       string              `json:"idle_timeout"`
-		WaitTimeout       string              `json:"wait_timeout"`
-		TLSType           string              `json:"tls_type"`
-		TLSSkipVerify     bool                `json:"tls_skip_verify"`
+		Name          string              `json:"name"`
+		UUID          string              `json:"uuid"`
+		Enabled       bool                `json:"enabled"`
+		Host          string              `json:"host"`
+		HelloHostname string              `json:"hello_hostname"`
+		Port          int                 `json:"port"`
+		AuthProtocol  string              `json:"auth_protocol"`
+		Username      string              `json:"username"`
+		Password      string              `json:"password,omitempty"`
+		EmailHeaders  []map[string]string `json:"email_headers"`
+		MaxConns      int                 `json:"max_conns"`
+		MaxMsgRetries int                 `json:"max_msg_retries"`
+		MsgRetryDelay string              `json:"msg_retry_delay"`
+		IdleTimeout   string              `json:"idle_timeout"`
+		WaitTimeout   string              `json:"wait_timeout"`
+		TLSType       string              `json:"tls_type"`
+		TLSSkipVerify bool                `json:"tls_skip_verify"`
+		FromAddresses []string            `json:"from_addresses"`
 	} `json:"smtp"`
 
 	Messengers []struct {
@@ -121,7 +123,12 @@ type Settings struct {
 	SESEnabled      bool   `json:"bounce.ses_enabled"`
 	SendgridEnabled bool   `json:"bounce.sendgrid_enabled"`
 	SendgridKey     string `json:"bounce.sendgrid_key"`
-	BouncePostmark  struct {
+	BounceAzure     struct {
+		Enabled            bool   `json:"enabled"`
+		SharedSecret       string `json:"shared_secret"`
+		SharedSecretHeader string `json:"shared_secret_header"`
+	} `json:"bounce.azure"`
+	BouncePostmark struct {
 		Enabled  bool   `json:"enabled"`
 		Username string `json:"username"`
 		Password string `json:"password"`

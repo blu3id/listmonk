@@ -99,7 +99,9 @@ type subFormTpl struct {
 }
 
 var (
-	pixelPNG = drawTransparentImage(3, 14)
+	// pixelPNG is a 1x1 transparent PNG served as the tracking pixel.
+	// Using the canonical 1x1 size (industry standard for tracking pixels).
+	pixelPNG = drawTransparentImage(1, 1)
 )
 
 // Render executes and renders a template for echo.
@@ -173,6 +175,9 @@ func (a *App) ViewCampaignMessage(c echo.Context) error {
 		return c.Render(http.StatusInternalServerError, tplMessage,
 			makeMsgTpl(a.i18n.T("public.errorTitle"), "", a.i18n.Ts("public.errorFetchingCampaign")))
 	}
+
+	// Resolve data-embed images to media URLs as cid: cannot resolve on a web page.
+	a.manager.ApplyArchiveImages(&camp)
 
 	// Compile the template.
 	if err := camp.CompileTemplate(a.manager.TemplateFuncs(&camp)); err != nil {
@@ -378,26 +383,8 @@ func (a *App) OptinPage(c echo.Context) error {
 			makeMsgTpl(a.i18n.T("public.noSubTitle"), "", a.i18n.Ts("public.noSubInfo")))
 	}
 
-	// Confirm.
-	if confirm {
-		meta := models.JSON{}
-		if a.cfg.Privacy.RecordOptinIP {
-			if h := c.Request().Header.Get("X-Forwarded-For"); h != "" {
-				meta["optin_ip"] = h
-			} else if h := c.Request().RemoteAddr; h != "" {
-				meta["optin_ip"] = strings.Split(h, ":")[0]
-			}
-		}
-
-		// Confirm subscriptions in the DB.
-		if err := a.core.ConfirmOptionSubscription(subUUID, req.ListUUIDs, meta); err != nil {
-			a.log.Printf("error unsubscribing: %v", err)
-			return c.Render(http.StatusInternalServerError, tplMessage,
-				makeMsgTpl(a.i18n.T("public.errorTitle"), "", a.i18n.Ts("public.errorProcessingRequest")))
-		}
-
-		return c.Render(http.StatusOK, tplMessage,
-			makeMsgTpl(a.i18n.T("public.subConfirmedTitle"), "", a.i18n.Ts("public.subConfirmed")))
+	if confirm || !a.cfg.ShowOptinPage {
+		return a.confirmOptinSubscription(c, subUUID, req.ListUUIDs, lists)
 	}
 
 	var out optinTpl
@@ -406,6 +393,33 @@ func (a *App) OptinPage(c echo.Context) error {
 	out.Title = a.i18n.T("public.confirmOptinSubTitle")
 
 	return c.Render(http.StatusOK, "optin", out)
+}
+
+func (a *App) confirmOptinSubscription(c echo.Context, subUUID string, listUUIDs []string, lists []models.List) error {
+	if len(listUUIDs) == 0 {
+		listUUIDs = make([]string, 0, len(lists))
+		for _, l := range lists {
+			listUUIDs = append(listUUIDs, l.UUID)
+		}
+	}
+
+	meta := models.JSON{}
+	if a.cfg.Privacy.RecordOptinIP {
+		if h := c.Request().Header.Get("X-Forwarded-For"); h != "" {
+			meta["optin_ip"] = h
+		} else if h := c.Request().RemoteAddr; h != "" {
+			meta["optin_ip"] = strings.Split(h, ":")[0]
+		}
+	}
+
+	if err := a.core.ConfirmOptionSubscription(subUUID, listUUIDs, meta); err != nil {
+		a.log.Printf("error confirming opt-in subscription: %v", err)
+		return c.Render(http.StatusInternalServerError, tplMessage,
+			makeMsgTpl(a.i18n.T("public.errorTitle"), "", a.i18n.Ts("public.errorProcessingRequest")))
+	}
+
+	return c.Render(http.StatusOK, tplMessage,
+		makeMsgTpl(a.i18n.T("public.subConfirmedTitle"), "", a.i18n.Ts("public.subConfirmed")))
 }
 
 // SubscriptionFormPage handles subscription requests coming from public
@@ -499,6 +513,15 @@ func (a *App) SubscriptionForm(c echo.Context) error {
 		}
 
 		return c.Render(e.Code, tplMessage, makeMsgTpl(a.i18n.T("public.errorTitle"), "", fmt.Sprintf("%s", e.Message)))
+	}
+
+	// Redirect to a custom page if a trusted '?next' is set.
+	if nextURL := strings.TrimSpace(c.FormValue("next")); nextURL != "" {
+		for _, d := range a.cfg.Security.TrustedURLs {
+			if d != "*" && nextURL == d {
+				return c.Redirect(http.StatusSeeOther, nextURL)
+			}
+		}
 	}
 
 	// If there were double optin lists, show the opt-in pending message instead of
