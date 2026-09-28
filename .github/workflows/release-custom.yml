@@ -1,0 +1,32 @@
+name: release-custom
+on:
+  push:
+    branches:
+      - "v*" # Will trigger if tag is pushed matching pattern `v*`
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: make dist LISTMONK_VERSION=${{ github.ref_name }}
+      - run: |
+          docker build \
+            -t ghcr.io/blu3id/listmonk:${{ github.ref_name }} \
+            -t ghcr.io/blu3id/listmonk:${{ github.ref_name }}-$(git rev-parse --short HEAD) \
+            .
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: docker push ghcr.io/blu3id/listmonk:${{ github.ref_name }}
+      - run: docker push ghcr.io/blu3id/listmonk:${{ github.ref_name }}-$(git rev-parse --short HEAD)
